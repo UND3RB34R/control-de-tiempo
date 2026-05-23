@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🔑 Generador de Licencias — Control de Pintores</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f13; color: #f0f0f0;
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .card {
+      background: #1a1a24; border: 1px solid #2e2e44;
+      border-radius: 20px; padding: 40px 36px;
+      width: 100%; max-width: 460px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.5);
+    }
+    .logo { font-size: 2.4rem; margin-bottom: 8px; }
+    h1 { font-size: 1.3rem; font-weight: 700; color: #e85d04; margin-bottom: 4px; }
+    .sub { font-size: .82rem; color: #666; margin-bottom: 32px; }
+    label { display: block; font-size: .82rem; color: #999; margin-bottom: 6px; font-weight: 500; }
+    input {
+      width: 100%; background: #0f0f13;
+      border: 1.5px solid #2e2e44; border-radius: 10px;
+      padding: 12px 14px; color: #f0f0f0; font-size: .95rem;
+      outline: none; transition: border-color .2s; margin-bottom: 20px;
+    }
+    input:focus { border-color: #e85d04; }
+    .btn {
+      width: 100%; background: #e85d04; color: #fff; border: none;
+      border-radius: 10px; padding: 14px; font-size: 1rem;
+      font-weight: 700; cursor: pointer; letter-spacing: .5px;
+      transition: background .15s;
+    }
+    .btn:hover { background: #c94e02; }
+    .result {
+      margin-top: 24px; background: #0f0f13;
+      border: 1.5px solid #e85d04; border-radius: 12px;
+      padding: 20px; display: none;
+    }
+    .result.show { display: block; }
+    .result-label { font-size: .75rem; color: #e85d04; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .code-display { font-family: 'Courier New', monospace; font-size: 1.5rem; font-weight: 700; letter-spacing: 3px; color: #fff; margin-bottom: 12px; }
+    .copy-btn { background: #2e2e44; color: #ccc; border: none; border-radius: 8px; padding: 8px 16px; font-size: .82rem; cursor: pointer; transition: background .15s; }
+    .copy-btn:hover { background: #3e3e5a; color: #fff; }
+    .copy-btn.copied { background: #1a4a1a; color: #4caf50; }
+    .history { margin-top: 28px; }
+    .history h3 { font-size: .82rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+    .hist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1e1e2e; font-size: .85rem; }
+    .hist-item:last-child { border-bottom: none; }
+    .hist-ref { color: #999; }
+    .hist-code { font-family: monospace; color: #e85d04; font-size: .8rem; letter-spacing: 1px; }
+    .warning { background: #2a1a0a; border: 1px solid #e85d04; border-radius: 10px; padding: 12px 14px; font-size: .78rem; color: #d08060; margin-bottom: 24px; line-height: 1.5; }
+    .warning strong { color: #e85d04; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🔑</div>
+  <h1>Generador de Licencias</h1>
+  <p class="sub">Control de Pintores · NZ — Herramienta privada</p>
+
+  <div class="warning">
+    <strong>⚠️ Uso privado.</strong> Este archivo solo lo abres tú. No lo compartas con clientes.
+  </div>
+
+  <div>
+    <label>Referencia del cliente</label>
+    <input type="text" id="clientRef" placeholder="Ej: JUAN, CLI001, EMPRESA1"
+           maxlength="8" oninput="this.value=this.value.toUpperCase()"
+           onkeydown="if(event.key==='Enter') generate()" />
+    <button class="btn" onclick="generate()">⚡ Generar código</button>
+  </div>
+
+  <div class="result" id="result">
+    <div class="result-label">Código de activación</div>
+    <div class="code-display" id="codeOut"></div>
+    <button class="copy-btn" id="copyBtn" onclick="copyCode()">📋 Copiar código</button>
+  </div>
+
+  <div class="history" id="historySection" style="display:none">
+    <h3>Códigos generados</h3>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<script>
+  const SALT = 'CtrlPintores@2024!';
+
+  function checksum(payload) {
+    const str = SALT + payload;
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) {
+      h = (Math.imul(h, 31) ^ str.charCodeAt(i)) >>> 0;
+    }
+    const C = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let r = '', v = h;
+    for (let i = 0; i < 4; i++) { r += C[v % C.length]; v = Math.floor(v / C.length); }
+    return r;
+  }
+
+  function generateCode(ref) {
+    const payload = (ref.toUpperCase().replace(/[^A-Z0-9]/g, 'X') + 'XXXXXXXX').slice(0, 8);
+    const p1 = payload.slice(0, 4);
+    const p2 = payload.slice(4, 8);
+    return `PINT-${p1}-${p2}-${checksum(payload)}`;
+  }
+
+  let lastCode = '';
+
+  function generate() {
+    const ref = document.getElementById('clientRef').value.trim();
+    if (!ref) { alert('Ingresa la referencia del cliente'); return; }
+    const code = generateCode(ref);
+    lastCode = code;
+    document.getElementById('codeOut').textContent = code;
+    document.getElementById('result').classList.add('show');
+    document.getElementById('copyBtn').textContent = '📋 Copiar código';
+    document.getElementById('copyBtn').classList.remove('copied');
+    const history = JSON.parse(localStorage.getItem('lic_history') || '[]');
+    if (!history.find(h => h.ref === ref)) {
+      history.unshift({ ref, code, date: new Date().toLocaleDateString('es') });
+      if (history.length > 50) history.pop();
+      localStorage.setItem('lic_history', JSON.stringify(history));
+    }
+    renderHistory();
+  }
+
+  function copyCode() {
+    if (!lastCode) return;
+    navigator.clipboard.writeText(lastCode).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '✅ Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '📋 Copiar código'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  function renderHistory() {
+    const history = JSON.parse(localStorage.getItem('lic_history') || '[]');
+    const section = document.getElementById('historySection');
+    const list    = document.getElementById('historyList');
+    if (history.length === 0) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    list.innerHTML = history.map(h =>
+      `<div class="hist-item">
+        <div><div style="font-weight:600;color:#f0f0f0">${h.ref}</div><div class="hist-ref">${h.date}</div></div>
+        <div class="hist-code">${h.code}</div>
+      </div>`
+    ).join('');
+  }
+
+  renderHistory();
+  document.getElementById('clientRef').focus();
+</script>
+</body>
+</html>

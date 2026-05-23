@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#e85d04" />
+  <meta name="description" content="Control de horas y pagos para pintores · Nueva Zelanda" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pintores" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <title>Control de Pintores · NZ</title>
+</head>
+<body>
+
+<!-- ===== SPLASH ===== -->
+<div id="splash" class="splash">
+  <div class="splash-inner">
+    <div class="splash-icon">🎨</div>
+    <div class="splash-title">Control de Pintores</div>
+    <div class="splash-loader"><span></span></div>
+  </div>
+</div>
+
+<!-- ===== TRIAL BANNER ===== -->
+<div id="trialBanner" class="hidden">
+  <span id="trialBannerText">🕐 Período de prueba: 30 días restantes</span>
+  <span style="font-size:.8rem;opacity:.8">→ Activar</span>
+</div>
+
+<!-- ===== LICENSE WALL ===== -->
+<div id="licenseWall" class="hidden">
+  <div class="lw-icon">🔒</div>
+  <div class="lw-title">Período de prueba finalizado</div>
+  <div class="lw-sub">Tu acceso gratuito ha expirado. Ingresa tu código de activación para continuar.</div>
+  <div class="lw-card">
+    <label>Código de activación</label>
+    <input type="text" id="licenseWallCode" placeholder="PINT-XXXX-XXXX-XXXX"
+           maxlength="23" oninput="formatLicenseInput(this)"
+           onkeydown="if(event.key==='Enter') tryActivateLicense('licenseWallCode')" />
+    <button class="lw-btn-activate" onclick="tryActivateLicense('licenseWallCode')">⚡ Activar ahora</button>
+  </div>
+  <div class="lw-divider">— ¿No tienes un código? —</div>
+  <a class="lw-btn-wa" id="licenseWhatsApp" href="#" target="_blank">
+    <span style="font-size:1.2rem">📱</span> Contactar por WhatsApp
+  </a>
+  <a class="lw-btn-wa hidden" id="licensePayment" href="#" target="_blank"
+     style="color:#60a5fa;border-color:#1e3a5a;background:#0f1f30">
+    <span style="font-size:1.2rem">💳</span> Ir a página de pago
+  </a>
+</div>
+
+<!-- ===== APP SHELL ===== -->
+<div id="app" class="app hidden">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <button class="topbar-back hidden" id="btnBack" onclick="goBack()">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="topbar-title" id="topbarTitle">Panel Principal</div>
+    <div class="topbar-actions">
+      <button class="icon-btn" onclick="toggleTheme()" title="Cambiar tema" id="themeBtn">🌙</button>
+      <button class="icon-btn" onclick="showView('settings')" title="Configuración">⚙️</button>
+    </div>
+  </header>
+
+  <!-- VIEWS -->
+  <main class="main-content">
+
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view active">
+      <div class="dashboard-header">
+        <div class="company-info">
+          <div class="company-logo" id="companyLogoDisplay">🎨</div>
+          <div>
+            <div class="company-name" id="companyNameDisplay">Mi Empresa</div>
+            <div class="company-sub">Control de Pintores · NZ</div>
+          </div>
+        </div>
+        <div class="date-display" id="currentDateDisplay"></div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-number" id="statPintores">0</div>
+          <div class="stat-label">Pintores</div>
+        </div>
+        <div class="stat-card accent">
+          <div class="stat-number" id="statHorasHoy">0h</div>
+          <div class="stat-label">Horas hoy</div>
+        </div>
+        <div class="stat-card warning">
+          <div class="stat-number" id="statPendiente">$0</div>
+          <div class="stat-label">Pendiente</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h2>Pintores</h2>
+        <button class="btn-primary small" onclick="showView('add-painter')">+ Agregar</button>
+      </div>
+      <div id="paintersList" class="painters-list"></div>
+      <div id="emptyState" class="empty-state hidden">
+        <div class="empty-icon">👷</div>
+        <p>No hay pintores registrados aún.</p>
+        <button class="btn-primary" onclick="showView('add-painter')" style="margin-top:16px">Agregar primer pintor</button>
+      </div>
+    </section>
+
+    <!-- CLOCK IO -->
+    <section id="view-clockio" class="view">
+      <div class="painter-header-card" id="clockioPainterCard"></div>
+      <div class="clock-display">
+        <div class="clock-time" id="clockTime">00:00:00</div>
+        <div class="clock-date" id="clockDate"></div>
+      </div>
+      <div id="activeShiftInfo" class="shift-info-banner hidden">
+        <span class="pulse-dot"></span>
+        <span id="shiftStartLabel">Turno iniciado</span>
+      </div>
+      <div class="clock-actions">
+        <button class="btn-clock in" id="btnCheckIn" onclick="checkIn()">
+          <span class="btn-clock-icon">▶</span><span>ENTRADA</span>
+        </button>
+        <button class="btn-clock out disabled" id="btnCheckOut" onclick="showBreakModal()">
+          <span class="btn-clock-icon">⏹</span><span>SALIDA</span>
+        </button>
+      </div>
+      <div class="section-header mt-2">
+        <h3>Turnos de hoy</h3>
+        <button class="btn-ghost small" onclick="showManualEntry()">+ Manual</button>
+      </div>
+      <div id="todayShifts" class="shifts-list"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="view-history" class="view">
+      <div class="filter-bar">
+        <select id="filterPainter" onchange="loadHistory()" class="filter-select">
+          <option value="">Todos los pintores</option>
+        </select>
+        <input type="week" id="filterWeek" onchange="loadHistory()" class="filter-input" />
+        <button class="btn-ghost small" onclick="clearHistoryFilters()">Limpiar</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+      <div id="historyEmpty" class="empty-state hidden">
+        <div class="empty-icon">📋</div>
+        <p>No hay registros para los filtros seleccionados.</p>
+      </div>
+    </section>
+
+    <!-- SUMMARY -->
+    <section id="view-summary" class="view">
+      <div class="filter-bar">
+        <select id="summaryPeriod" onchange="loadSummary()" class="filter-select">
+          <option value="week">Esta semana</option>
+          <option value="month">Este mes</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        <div id="customDateRange" class="hidden" style="display:flex;gap:8px;width:100%">
+          <input type="date" id="summaryFrom" onchange="loadSummary()" class="filter-input" />
+          <input type="date" id="summaryTo"   onchange="loadSummary()" class="filter-input" />
+        </div>
+      </div>
+      <div id="summaryContent" class="summary-content"></div>
+      <div class="export-actions">
+        <button class="btn-secondary" onclick="exportCSV()">📄 CSV</button>
+        <button class="btn-secondary" onclick="exportPDF()">🖨️ PDF</button>
+      </div>
+    </section>
+
+    <!-- PAINTERS MANAGEMENT -->
+    <section id="view-painters" class="view">
+      <div class="section-header">
+        <h2>Gestión de Pintores</h2>
+        <button class="btn-primary small" onclick="showView('add-painter')">+ Nuevo</button>
+      </div>
+      <div id="paintersManageList"></div>
+    </section>
+
+    <!-- ADD / EDIT PAINTER -->
+    <section id="view-add-painter" class="view">
+      <div class="form-card">
+        <h2 id="formPainterTitle">Nuevo Pintor</h2>
+
+        <div class="form-group">
+          <label>Nombre completo *</label>
+          <input type="text" id="painterName" placeholder="Ej: Juan Pérez" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input type="tel" id="painterPhone" placeholder="Ej: 021 123 4567" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Valor por hora (NZD) *</label>
+          <input type="number" id="painterRate" placeholder="Ej: 28.00" class="form-input" min="0" step="0.01" />
+        </div>
+
+        <!-- Tax type -->
+        <div class="form-group">
+          <label>Tipo impositivo (IRD)</label>
+          <select id="painterTaxType" class="form-input" onchange="toggleWhtRow()">
+            <option value="employee">Empleado — PAYE</option>
+            <option value="contractor">Contratista independiente — WHT</option>
+          </select>
+        </div>
+        <div class="form-group hidden" id="whtRateRow">
+          <label>Tasa WHT del contratista (IR330C)</label>
+          <select id="painterWhtRate" class="form-input">
+            <option value="0.10">10%</option>
+            <option value="0.15">15%</option>
+            <option value="0.20" selected>20% (estándar)</option>
+            <option value="0.25">25%</option>
+            <option value="0.33">33%</option>
+            <option value="0.00">0% — Exento (con certificado)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Color identificador</label>
+          <div class="color-picker-row">
+            <input type="color" id="painterColor" value="#e85d04" class="color-input" onchange="updateColorPreview()" />
+            <span id="painterColorPreview" class="color-preview" style="color:#e85d04">●</span>
+            <span style="font-size:.82rem;color:var(--text-3)">Color del pintor</span>
+          </div>
+        </div>
+
+        <input type="hidden" id="editPainterId" value="" />
+        <div class="form-actions">
+          <button class="btn-ghost" onclick="goBack()">Cancelar</button>
+          <button class="btn-primary" onclick="savePainter()">Guardar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAINTER DETAIL -->
+    <section id="view-painter-detail" class="view">
+      <div id="painterDetailHeader" class="painter-detail-header"></div>
+      <div class="detail-tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-balance', this)">Balance</button>
+        <button class="tab-btn" onclick="switchTab('tab-payments', this)">Pagos</button>
+        <button class="tab-btn" onclick="switchTab('tab-history', this)">Historial</button>
+      </div>
+      <div id="tab-balance" class="tab-content active">
+        <div id="painterBalanceCard" class="balance-card"></div>
+        <button class="btn-primary full mt-2" onclick="showPaymentForm()">💵 Registrar Pago</button>
+        <button class="btn-secondary full" style="margin-top:10px" onclick="showView('clockio', currentPainterId)">⏱ Fichar</button>
+      </div>
+      <div id="tab-payments" class="tab-content">
+        <div id="painterPaymentsList" class="payments-list"></div>
+      </div>
+      <div id="tab-history" class="tab-content">
+        <div id="painterHistoryList" class="history-list"></div>
+      </div>
+    </section>
+
+    <!-- TAX CALCULATOR -->
+    <section id="view-tax-calculator" class="view">
+      <!-- rendered by renderTaxCalculator() -->
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view">
+      <div class="form-card">
+        <h2>Configuración</h2>
+
+        <div class="settings-section">
+          <h3>Empresa</h3>
+          <div class="form-group">
+            <label>Nombre de la empresa</label>
+            <input type="text" id="settingsCompany" placeholder="Mi Empresa de Pintura" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label>Emoji / Logo</label>
+            <input type="text" id="settingsLogo" placeholder="🎨" class="form-input" maxlength="4" />
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Apariencia</h3>
+          <div class="settings-row">
+            <span>Modo oscuro</span>
+            <label class="toggle">
+              <input type="checkbox" id="settingsDarkMode" onchange="applyThemeFromSettings()" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="form-group" style="margin-top:12px">
+            <label>Color principal</label>
+            <input type="color" id="settingsAccentColor" value="#e85d04" class="color-input" onchange="applyAccentColor()" />
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Pausas de alimentación</h3>
+          <div class="form-group">
+            <label>Duración por defecto (minutos)</label>
+            <input type="number" id="settingsBreakMins" value="30" min="5" max="120" step="5" class="form-input" />
+          </div>
+          <div class="settings-row">
+            <span>Pausas pagadas por defecto</span>
+            <label class="toggle">
+              <input type="checkbox" id="settingsBreakPaid" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Licencia</h3>
+          <div style="margin-bottom:12px" id="licenseStatusText">
+            <span class="lic-badge trial">🕐 Cargando...</span>
+          </div>
+          <div id="licenseActivateRow">
+            <div class="form-group" style="margin-bottom:8px">
+              <label>Código de activación</label>
+              <input type="text" id="licenseCodeInput" class="form-input"
+                     placeholder="PINT-XXXX-XXXX-XXXX" maxlength="23"
+                     style="font-family:'Courier New',monospace;letter-spacing:2px;text-transform:uppercase"
+                     oninput="formatLicenseInput(this)"
+                     onkeydown="if(event.key==='Enter') tryActivateLicense('licenseCodeInput')" />
+            </div>
+            <button class="btn-primary full" onclick="tryActivateLicense('licenseCodeInput')">⚡ Activar licencia</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Datos</h3>
+          <button class="btn-danger full" onclick="confirmClearData()">🗑️ Borrar todos los datos</button>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-ghost" onclick="goBack()">Cancelar</button>
+          <button class="btn-primary" onclick="saveSettings()">Guardar</button>
+        </div>
+      </div>
+      <div class="app-version">Control de Pintores v1.2 · PWA Offline · NZ</div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="showView('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Panel</span>
+    </button>
+    <button class="nav-item" onclick="showView('history')" id="nav-history">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Historial</span>
+    </button>
+    <button class="nav-item" onclick="showView('summary')" id="nav-summary">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Resumen</span>
+    </button>
+    <button class="nav-item" onclick="showView('painters')" id="nav-painters">
+      <span class="nav-icon">👷</span>
+      <span class="nav-label">Pintores</span>
+    </button>
+    <button class="nav-item" onclick="showView('tax-calculator')" id="nav-tax">
+      <span class="nav-icon">🇳🇿</span>
+      <span class="nav-label">Tax NZ</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- MANUAL ENTRY -->
+<div id="modal-manual" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Registrar Turno Manual</h3>
+      <button class="modal-close" onclick="closeModal('modal-manual')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Fecha</label>
+        <input type="date" id="manualDate" class="form-input" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Entrada</label>
+          <input type="time" id="manualIn" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Salida</label>
+          <input type="time" id="manualOut" class="form-input" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nota (opcional)</label>
+        <input type="text" id="manualNote" placeholder="Ej: Trabajo extra" class="form-input" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-manual')">Cancelar</button>
+      <button class="btn-primary" onclick="saveManualEntry()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT -->
+<div id="modal-payment" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Registrar Pago / Adelanto</h3>
+      <button class="modal-close" onclick="closeModal('modal-payment')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Monto (NZD)</label>
+        <input type="number" id="paymentAmount" placeholder="0.00" class="form-input" min="0" step="0.01" />
+      </div>
+      <div class="form-group">
+        <label>Fecha</label>
+        <input type="date" id="paymentDate" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="paymentType" class="form-input">
+          <option value="adelanto">Adelanto</option>
+          <option value="pago_total">Pago total</option>
+          <option value="pago_parcial">Pago parcial</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Nota (opcional)</label>
+        <input type="text" id="paymentNote" placeholder="Ej: Semana 1" class="form-input" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-payment')">Cancelar</button>
+      <button class="btn-primary" onclick="savePayment()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT SHIFT -->
+<div id="modal-edit-shift" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Editar Turno</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-shift')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Fecha</label>
+        <input type="date" id="editShiftDate" class="form-input" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Entrada</label>
+          <input type="time" id="editShiftIn" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Salida</label>
+          <input type="time" id="editShiftOut" class="form-input" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nota</label>
+        <input type="text" id="editShiftNote" class="form-input" />
+      </div>
+      <input type="hidden" id="editShiftId" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn-danger" onclick="deleteShift()">Eliminar</button>
+      <button class="btn-ghost" onclick="closeModal('modal-edit-shift')">Cancelar</button>
+      <button class="btn-primary" onclick="saveShiftEdit()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- BREAK MODAL -->
+<div id="modal-break" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>⏸ Pausa de alimentación</h3>
+      <button class="modal-close" onclick="closeBreakModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="break-question">¿Tuviste pausas de alimentación hoy?</p>
+      <div class="break-toggle-row">
+        <button class="break-toggle-btn active" id="breakBtnNo"  onclick="setBreakAnswer(false)">No</button>
+        <button class="break-toggle-btn"        id="breakBtnYes" onclick="setBreakAnswer(true)">Sí</button>
+      </div>
+      <div class="break-detail hidden" id="breakDetail">
+        <h4>Detalle de pausas</h4>
+        <div class="break-count-row">
+          <span class="break-count-label">Cantidad de pausas</span>
+          <div class="break-counter">
+            <button class="break-counter-btn" onclick="changeBreakCount(-1)">−</button>
+            <span class="break-counter-val" id="breakCount">1</span>
+            <button class="break-counter-btn" onclick="changeBreakCount(1)">+</button>
+          </div>
+        </div>
+        <div class="break-count-row">
+          <span class="break-count-label">Minutos por pausa</span>
+          <div class="break-counter">
+            <button class="break-counter-btn" onclick="changeBreakMins(-15)">−</button>
+            <span class="break-counter-val" id="breakMins">30</span>
+            <button class="break-counter-btn" onclick="changeBreakMins(15)">+</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:14px;margin-bottom:0">
+          <label style="font-size:.8rem">Tipo de pausa</label>
+          <select id="breakPaidType" class="form-input" style="font-size:.88rem" onchange="updateBreakSummary()">
+            <option value="unpaid">No pagada (se descuenta del tiempo)</option>
+            <option value="paid">Pagada (no se descuenta)</option>
+          </select>
+        </div>
+        <div class="break-summary" id="breakSummary">Se descontarán 30 min del turno</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost"   onclick="closeBreakModal()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmBreakAndCheckOut()">Confirmar salida</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div id="modal-confirm" class="modal-overlay hidden">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h3 id="confirmTitle">¿Estás seguro?</h3>
+    </div>
+    <div class="modal-body">
+      <p id="confirmMsg"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-confirm')">Cancelar</button>
+      <button class="btn-danger" id="confirmBtn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- SCRIPTS — order matters -->
+<script src="js/db.js"></script>
+<script src="js/license.js"></script>
+<script src="js/tax.js"></script>
+<script src="js/app.js"></script>
+<script src="js/painters.js"></script>
+<script src="js/shifts.js"></script>
+<script src="js/payments.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/export.js"></script>
+</body>
+</html>
